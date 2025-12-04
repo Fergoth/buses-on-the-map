@@ -67,15 +67,15 @@ async def send_updates(server_address, receive_channel):
 @click.command()
 @click.option("--server", default="ws://localhost:8080", help="Адрес сервера")
 @click.option("--routes_number", default=10, help="Количество маршрутов")
-@click.option("--buses_per_route", default=30, help="Количество автобусов на маршруте")
+@click.option("--buses_per_route", default=10, help="Количество автобусов на маршруте")
 @click.option("--websocket_numbers", default=5, help="Количество websocket")
 @click.option(
     "--emulator_id",
-    default="em1",
+    default="em_1",
     help="префикс к busId на случай запуска нескольких экземпляров имитатора",
 )
 @click.option(
-    "--refresh_timeout", default=0.1, help="задержка в обновлении координат сервера"
+    "--refresh_timeout", default=1, help="задержка в обновлении координат сервера"
 )
 @click.option("-v", is_flag=True, default=True, help="вывод в консоль")
 async def main(
@@ -106,8 +106,8 @@ async def main(
                     nursery.start_soon(
                         run_bus,
                         send,
-                        generate_bus_id(f"{emulator_id}-i", bus_route["name"]),
-                        islice(cycle(bus_route["coordinates"]), i * 10, None),
+                        generate_bus_id(f"{emulator_id}-{i}", bus_route["name"]),
+                        islice(cycle(bus_route["coordinates"]), i * 20, None),
                         bus_route["name"],
                         refresh_timeout,
                     )
