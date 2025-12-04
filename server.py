@@ -11,11 +11,20 @@ TICK = 1
 buses = {}
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+)
 logger.addHandler(handler)
 logger.addHandler
+
+
+def is_inside(bounds, lat, lon):
+    return (
+        bounds["south_lat"] <= lat <= bounds["north_lat"]
+        and bounds["west_lng"] <= lon <= bounds["east_lng"]
+    )
 
 
 async def listen_browser(ws):
@@ -24,7 +33,12 @@ async def listen_browser(ws):
             message = await ws.get_message()
             decoded_message = json.loads(message)
             logger.debug(f"Получены координаты от браузера: {decoded_message}")
-
+            buses_in_window = [
+                bus
+                for bus in buses.values()
+                if is_inside(decoded_message['data'], bus["lat"], bus["lng"])
+            ]
+            logger.info(f"Автобусы в окне: {buses_in_window}")
         except ConnectionClosed:
             break
 
@@ -36,7 +50,7 @@ async def listen_buses(request):
             message = await ws.get_message()
             decoded_message = json.loads(message)
             buses[decoded_message["busId"]] = decoded_message
-            logger.info(f"Получены координаты от автобуса: {decoded_message}")
+            logger.debug(f"Получены координаты от автобуса: {decoded_message}")
         except ConnectionClosed:
             break
 
@@ -46,7 +60,7 @@ async def send_to_browser(ws):
         try:
             message = {"msgType": "Buses", "buses": list(buses.values())}
             await ws.send_message(json.dumps(message))
-            logger.info(f"Отправлены координаты автобусов: {message}")
+            logger.debug(f"Отправлены координаты автобусов: {message}")
             await trio.sleep(TICK)
         except ConnectionClosed:
             break
