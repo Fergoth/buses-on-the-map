@@ -9,6 +9,8 @@ from random import choice
 import asyncclick as click
 import trio
 from trio_websocket import ConnectionClosed, HandshakeError, open_websocket_url
+from models import Bus
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +48,8 @@ def load_routes(limit=-1, directory_path="routes"):
 
 async def run_bus(send_channel, bus_id, route, bus_name, refresh_timeout):
     for location in route:
-        message = {
-            "busId": bus_id,
-            "lat": location[0],
-            "lng": location[1],
-            "route": bus_name,
-        }
-        await send_channel.send(json.dumps(message, ensure_ascii=False))
+        bus = Bus(busId=bus_id, lat=location[0], lng=location[1], route=bus_name)
+        await send_channel.send(bus.model_dump_json(ensure_ascii=False))
         await trio.sleep(refresh_timeout)
 
 
@@ -94,7 +91,7 @@ async def main(
     with suppress(KeyboardInterrupt):
         async with trio.open_nursery() as nursery:
             channels = [
-                trio.open_memory_channel(0) for i in range(websocket_numbers)
+                trio.open_memory_channel(0) for _ in range(websocket_numbers)
             ]  # send, receive
             logger.debug(f"Открываем {websocket_numbers} websocket")
             for channel in channels:

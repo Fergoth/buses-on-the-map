@@ -1,14 +1,20 @@
-import json
 from functools import partial
 
 import trio
 import asyncclick as click
-from trio_websocket import ConnectionClosed, serve_websocket
+from trio_websocket import (
+    ConnectionClosed,
+    serve_websocket,
+    WebSocketRequest,
+    WebSocketConnection,
+)
 import logging
+from models import Bus, MessageToBrowser, Window, BoundsMessage
 
 TICK = 1
 
-buses = {}
+buses: dict[str, Bus] = {}
+window = Window()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -20,25 +26,13 @@ logger.addHandler(handler)
 logger.addHandler
 
 
-def is_inside(bounds, lat, lon):
-    return (
-        bounds["south_lat"] <= lat <= bounds["north_lat"]
-        and bounds["west_lng"] <= lon <= bounds["east_lng"]
-    )
-
-
-async def listen_browser(ws):
+async def listen_browser(ws, window: Window):
     while True:
         try:
             message = await ws.get_message()
-            decoded_message = json.loads(message)
-            logger.debug(f"Получены координаты от браузера: {decoded_message}")
-            buses_in_window = [
-                bus
-                for bus in buses.values()
-                if is_inside(decoded_message['data'], bus["lat"], bus["lng"])
-            ]
-            logger.info(f"Автобусы в окне: {buses_in_window}")
+            bounds = BoundsMessage.model_validate_json(message)
+            logger.debug(f"Получены координаты от браузера: {bounds}")
+            window.update(bounds.data)
         except ConnectionClosed:
             break
 
@@ -48,29 +42,34 @@ async def listen_buses(request):
     while True:
         try:
             message = await ws.get_message()
-            decoded_message = json.loads(message)
-            buses[decoded_message["busId"]] = decoded_message
-            logger.debug(f"Получены координаты от автобуса: {decoded_message}")
+            bus = Bus.model_validate_json(message)
+            buses[bus.busId] = Bus.model_validate_json(message)
+            logger.debug(f"Получены координаты от автобуса: {bus}")
         except ConnectionClosed:
             break
 
 
-async def send_to_browser(ws):
+def filter_buses(window: Window):
+    return [bus for bus in buses.values() if window.is_inside(bus)]
+
+
+async def send_buses(ws: WebSocketConnection, window: Window):
     while True:
         try:
-            message = {"msgType": "Buses", "buses": list(buses.values())}
-            await ws.send_message(json.dumps(message))
+            message = MessageToBrowser(buses=filter_buses(window))
+            await ws.send_message(message.model_dump_json())
             logger.debug(f"Отправлены координаты автобусов: {message}")
             await trio.sleep(TICK)
         except ConnectionClosed:
             break
 
 
-async def talk_to_browser(request):
+async def talk_to_browser(request: WebSocketRequest):
     ws = await request.accept()
+    window = Window()
     async with trio.open_nursery() as nursery:
-        nursery.start_soon(listen_browser, ws)
-        nursery.start_soon(send_to_browser, ws)
+        nursery.start_soon(listen_browser, ws, window)
+        nursery.start_soon(send_buses, ws, window)
 
 
 async def main():
