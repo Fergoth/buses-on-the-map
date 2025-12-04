@@ -5,7 +5,6 @@ from contextlib import suppress
 from functools import wraps
 from itertools import cycle, islice
 from random import choice
-from sys import stderr
 
 import asyncclick as click
 import trio
