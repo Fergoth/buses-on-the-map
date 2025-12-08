@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 from contextlib import suppress
 from functools import wraps
 from itertools import cycle, islice
@@ -104,11 +105,12 @@ async def main(
             for bus_route in load_routes(routes_number):
                 for i in range(buses_per_route):
                     send, _ = choice(channels)
+                    random_delay_for_fake_bus = i * random.randint(10, 30)
                     nursery.start_soon(
                         run_bus,
                         send,
                         generate_bus_id(f"{emulator_id}-{i}", bus_route["name"]),
-                        islice(cycle(bus_route["coordinates"]), i * 20, None),
+                        islice(cycle(bus_route["coordinates"]), random_delay_for_fake_bus, None),
                         bus_route["name"],
                         refresh_timeout,
                     )
