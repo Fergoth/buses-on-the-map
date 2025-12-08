@@ -73,7 +73,7 @@ async def talk_to_browser(request: WebSocketRequest):
 @click.command()
 @click.option("--bus_port", default=8080, help="Порт для автобусов")
 @click.option("--browser_port", default=8000, help="Порт для браузера")
-@click.option("-v", is_flag=True, default=True, help="вывод в консоль")
+@click.option("-v", is_flag=True, default=False, help="вывод в консоль")
 async def main(bus_port, browser_port, v):
     if v:
         logger.setLevel(logging.INFO)

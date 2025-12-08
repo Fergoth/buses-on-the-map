@@ -75,7 +75,7 @@ async def send_updates(server_address, receive_channel):
 @click.option(
     "--refresh_timeout", default=1, help="задержка в обновлении координат сервера"
 )
-@click.option("-v", is_flag=True, default=True, help="вывод в консоль")
+@click.option("-v", is_flag=True, default=False, help="вывод в консоль")
 async def main(
     server,
     routes_number,
