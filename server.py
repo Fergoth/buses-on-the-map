@@ -1,29 +1,21 @@
+import logging
+from contextlib import suppress
 from functools import partial
 
-import trio
 import asyncclick as click
+import trio
 from trio_websocket import (
     ConnectionClosed,
-    serve_websocket,
-    WebSocketRequest,
     WebSocketConnection,
+    WebSocketRequest,
+    serve_websocket,
 )
-import logging
-from models import Bus, MessageToBrowser, Window, BoundsMessage
 
-TICK = 1
+from models import BoundsMessage, Bus, MessageToBrowser, Window
 
 buses: dict[str, Bus] = {}
-window = Window()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-)
-logger.addHandler(handler)
-logger.addHandler
 
 
 async def listen_browser(ws, window: Window):
@@ -59,7 +51,6 @@ async def send_buses(ws: WebSocketConnection, window: Window):
             message = MessageToBrowser(buses=filter_buses(window))
             await ws.send_message(message.model_dump_json())
             logger.debug(f"Отправлены координаты автобусов: {message}")
-            await trio.sleep(TICK)
         except ConnectionClosed:
             break
 
@@ -72,12 +63,27 @@ async def talk_to_browser(request: WebSocketRequest):
         nursery.start_soon(send_buses, ws, window)
 
 
-async def main():
+@click.command()
+@click.option("--bus_port", default=8080, help="Адрес сервера")
+@click.option("--browser_port", default=8000, help="Количество маршрутов")
+@click.option("-v", is_flag=True, default=True, help="вывод в консоль")
+async def main(bus_port, browser_port, v):
+    if v:
+        logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+        logger.addHandler(handler)
+        logger.info("Вывод в консоль включен")
     serve_websocket_ssl = partial(serve_websocket, ssl_context=None)
-    async with trio.open_nursery() as nursery:
-        nursery.start_soon(serve_websocket_ssl, listen_buses, "127.0.0.1", 8080)
-        nursery.start_soon(serve_websocket_ssl, talk_to_browser, "127.0.0.1", 8000)
+    with suppress(KeyboardInterrupt):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(serve_websocket_ssl, listen_buses, "127.0.0.1", bus_port)
+            nursery.start_soon(
+                serve_websocket_ssl, talk_to_browser, "127.0.0.1", browser_port
+            )
 
 
 if __name__ == "__main__":
-    trio.run(main)
+    trio.run(main.main)
