@@ -86,7 +86,11 @@ async def main(
 ):
     if v:
         logger.setLevel(logging.INFO)
-        logger.addHandler(logging.StreamHandler())
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+        logger.addHandler(handler)
         logger.info("Вывод в консоль включен")
     with suppress(KeyboardInterrupt):
         async with trio.open_nursery() as nursery:
