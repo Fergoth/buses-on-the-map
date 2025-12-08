@@ -5,7 +5,6 @@ from trio_websocket import open_websocket_url
 
 async def main():
     async with open_websocket_url("ws://127.0.0.1:8000") as ws:
-        await ws.send_message('{}')
         await ws.send_message('{a:5}')
         while True:
             message = await ws.get_message()
