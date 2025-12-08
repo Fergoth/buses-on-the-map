@@ -10,7 +10,7 @@ from trio_websocket import (
     WebSocketRequest,
     serve_websocket,
 )
-
+from pydantic import ValidationError
 from models import BoundsMessage, Bus, MessageToBrowser, Window
 
 buses: dict[str, Bus] = {}
@@ -22,9 +22,12 @@ async def listen_browser(ws, window: Window):
     while True:
         try:
             message = await ws.get_message()
-            bounds = BoundsMessage.model_validate_json(message)
-            logger.debug(f"Получены координаты от браузера: {bounds}")
-            window.update(bounds.data)
+            try:
+                bounds = BoundsMessage.model_validate_json(message)
+                logger.debug(f"Получены координаты от браузера: {bounds}")
+                window.update(bounds.data)
+            except ValidationError as e:
+                await ws.send_message(str(e))
         except ConnectionClosed:
             break
 
@@ -34,9 +37,12 @@ async def listen_buses(request):
     while True:
         try:
             message = await ws.get_message()
-            bus = Bus.model_validate_json(message)
-            buses[bus.busId] = Bus.model_validate_json(message)
-            logger.debug(f"Получены координаты от автобуса: {bus}")
+            try:
+                bus = Bus.model_validate_json(message)
+                buses[bus.busId] = bus
+                logger.debug(f"Получены координаты от автобуса: {bus}")
+            except ValidationError as e:
+                await ws.send_message(str(e))
         except ConnectionClosed:
             break
 
@@ -51,6 +57,7 @@ async def send_buses(ws: WebSocketConnection, window: Window):
             message = MessageToBrowser(buses=filter_buses(window))
             await ws.send_message(message.model_dump_json())
             logger.debug(f"Отправлены координаты автобусов: {message}")
+            await trio.sleep(1)
         except ConnectionClosed:
             break
 
